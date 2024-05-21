@@ -1,205 +1,268 @@
-import { Util, Class, Evented } from "leaflet";
+import {
+    Util,
+    Class,
+    Evented
+} from "leaflet";
 
 export const Player = Class.extend({
-  includes: Evented.prototype,
-  initialize: function (options, timeDimension) {
-    Util.setOptions(this, options);
-    this._timeDimension = timeDimension;
-    this._paused = false;
-    this._buffer = this.options.buffer || 5;
-    this._minBufferReady = this.options.minBufferReady || 1;
-    this._waitingForBuffer = false;
-    this._loop = this.options.loop || false;
-    this._steps = 1;
-    this._timeDimension.on(
-      "timeload",
-      function (data) {
-        this.release(); // free clock
-        this._waitingForBuffer = false; // reset buffer
-      }.bind(this)
-    );
-    this.setTransitionTime(this.options.transitionTime || 1000);
+    includes: Evented.prototype,
 
-    this._timeDimension.on(
-      "limitschanged availabletimeschanged timeload",
-      function (data) {
-        this._timeDimension.prepareNextTimes(
-          this._steps,
-          this._minBufferReady,
-          this._loop
+    /**
+     * Timedimension player initializer
+     * @param {object} options player options 
+     * @param {Layer} timedimension timedimension layer
+     * @returns timedimension player
+     */
+    initialize: function(options, timeDimension) {
+        Util.setOptions(this, options);
+        this._timeDimension = timeDimension;
+        this._paused = false;
+        this._buffer = this.options.buffer || 5;
+        this._minBufferReady = this.options.minBufferReady || 1;
+        this._waitingForBuffer = false;
+        this._loop = this.options.loop || false;
+        this._steps = 1;
+        this._timeDimension.on(
+            "timeload",
+            function(data) {
+                this.release(); // free clock
+                this._waitingForBuffer = false; // reset buffer
+            }.bind(this)
         );
-      }.bind(this)
-    );
-  },
+        this.setTransitionTime(this.options.transitionTime || 1000);
 
-  _tick: function () {
-    var maxIndex = this._getMaxIndex();
-    var maxForward =
-      this._timeDimension.getCurrentTimeIndex() >= maxIndex && this._steps > 0;
-    var maxBackward =
-      this._timeDimension.getCurrentTimeIndex() == 0 && this._steps < 0;
-    if (maxForward || maxBackward) {
-      // we reached the last step
-      if (!this._loop) {
+        this._timeDimension.on(
+            "limitschanged availabletimeschanged timeload",
+            function(data) {
+                this._timeDimension.prepareNextTimes(
+                    this._steps,
+                    this._minBufferReady,
+                    this._loop
+                );
+            }.bind(this)
+        );
+    },
+
+    /**
+     * Method called uppon each tick of the player
+     * @returns Empty return
+     */
+    _tick: function() {
+        var maxIndex = this._getMaxIndex();
+        var maxForward =
+            this._timeDimension.getCurrentTimeIndex() >= maxIndex && this._steps > 0;
+        var maxBackward =
+            this._timeDimension.getCurrentTimeIndex() == 0 && this._steps < 0;
+        if (maxForward || maxBackward) {
+            // we reached the last step
+            if (!this._loop) {
+                this.pause();
+                this.stop();
+                this.fire("animationfinished");
+                return;
+            }
+        }
+
+        if (this._paused) {
+            return;
+        }
+        var numberNextTimesReady = 0,
+            buffer = this._bufferSize;
+
+        if (this._minBufferReady > 0) {
+            numberNextTimesReady = this._timeDimension.getNumberNextTimesReady(
+                this._steps,
+                buffer,
+                this._loop
+            );
+            // If the player was waiting, check if all times are loaded
+            if (this._waitingForBuffer) {
+                if (numberNextTimesReady < buffer) {
+                    console.log(
+                        "Waiting until buffer is loaded. " +
+                        numberNextTimesReady +
+                        " of " +
+                        buffer +
+                        " loaded"
+                    );
+                    this.fire("waiting", {
+                        buffer: buffer,
+                        available: numberNextTimesReady,
+                    });
+                    return;
+                } else {
+                    // all times loaded
+                    console.log("Buffer is fully loaded!");
+                    this.fire("running");
+                    this._waitingForBuffer = false;
+                }
+            } else {
+                // check if player has to stop to wait and force to full all the buffer
+                if (numberNextTimesReady < this._minBufferReady) {
+                    console.log(
+                        "Force wait for load buffer. " +
+                        numberNextTimesReady +
+                        " of " +
+                        buffer +
+                        " loaded"
+                    );
+                    this._waitingForBuffer = true;
+                    this._timeDimension.prepareNextTimes(this._steps, buffer, this._loop);
+                    this.fire("waiting", {
+                        buffer: buffer,
+                        available: numberNextTimesReady,
+                    });
+                    return;
+                }
+            }
+        }
         this.pause();
-        this.stop();
-        this.fire("animationfinished");
-        return;
-      }
-    }
-
-    if (this._paused) {
-      return;
-    }
-    var numberNextTimesReady = 0,
-      buffer = this._bufferSize;
-
-    if (this._minBufferReady > 0) {
-      numberNextTimesReady = this._timeDimension.getNumberNextTimesReady(
-        this._steps,
-        buffer,
-        this._loop
-      );
-      // If the player was waiting, check if all times are loaded
-      if (this._waitingForBuffer) {
-        if (numberNextTimesReady < buffer) {
-          console.log(
-            "Waiting until buffer is loaded. " +
-              numberNextTimesReady +
-              " of " +
-              buffer +
-              " loaded"
-          );
-          this.fire("waiting", {
-            buffer: buffer,
-            available: numberNextTimesReady,
-          });
-          return;
-        } else {
-          // all times loaded
-          console.log("Buffer is fully loaded!");
-          this.fire("running");
-          this._waitingForBuffer = false;
+        this._timeDimension.nextTime(this._steps, this._loop);
+        if (buffer > 0) {
+            this._timeDimension.prepareNextTimes(this._steps, buffer, this._loop);
         }
-      } else {
-        // check if player has to stop to wait and force to full all the buffer
-        if (numberNextTimesReady < this._minBufferReady) {
-          console.log(
-            "Force wait for load buffer. " +
-              numberNextTimesReady +
-              " of " +
-              buffer +
-              " loaded"
-          );
-          this._waitingForBuffer = true;
-          this._timeDimension.prepareNextTimes(this._steps, buffer, this._loop);
-          this.fire("waiting", {
-            buffer: buffer,
-            available: numberNextTimesReady,
-          });
-          return;
-        }
-      }
-    }
-    this.pause();
-    this._timeDimension.nextTime(this._steps, this._loop);
-    if (buffer > 0) {
-      this._timeDimension.prepareNextTimes(this._steps, buffer, this._loop);
-    }
-  },
+    },
 
-  _getMaxIndex: function () {
-    return Math.min(
-      this._timeDimension.getAvailableTimes().length - 1,
-      this._timeDimension.getUpperLimitIndex() || Infinity
-    );
-  },
-
-  start: function (numSteps) {
-    if (this._intervalID) return;
-    this._steps = numSteps || 1;
-    this._waitingForBuffer = false;
-    var startedOver = false;
-    if (this.options.startOver) {
-      if (this._timeDimension.getCurrentTimeIndex() === this._getMaxIndex()) {
-        this._timeDimension.setCurrentTimeIndex(
-          this._timeDimension.getLowerLimitIndex() || 0
+    /**
+     * Get maximum time intex
+     * @returns maximun time index
+     */
+    _getMaxIndex: function() {
+        return Math.min(
+            this._timeDimension.getAvailableTimes().length - 1,
+            this._timeDimension.getUpperLimitIndex() || Infinity
         );
-        startedOver = true;
-      }
-    }
-    this.release();
-    this._intervalID = window.setInterval(
-      Util.bind(this._tick, this),
-      this._transitionTime
-    );
-    if (!startedOver) this._tick();
-    this.fire("play");
-    this.fire("running");
-  },
+    },
 
-  stop: function () {
-    if (!this._intervalID) return;
-    clearInterval(this._intervalID);
-    this._intervalID = null;
-    this._waitingForBuffer = false;
-    this.fire("stop");
-  },
+    /**
+     * Method called when the player is started
+     * @param {number} numSteps number of steps previously activated
+     * @returns Empty return
+     */
+    start: function(numSteps) {
+        if (this._intervalID) return;
+        this._steps = numSteps || 1;
+        this._waitingForBuffer = false;
+        var startedOver = false;
+        if (this.options.startOver) {
+            if (this._timeDimension.getCurrentTimeIndex() === this._getMaxIndex()) {
+                this._timeDimension.setCurrentTimeIndex(
+                    this._timeDimension.getLowerLimitIndex() || 0
+                );
+                startedOver = true;
+            }
+        }
+        this.release();
+        this._intervalID = window.setInterval(
+            Util.bind(this._tick, this),
+            this._transitionTime
+        );
+        if (!startedOver) this._tick();
+        this.fire("play");
+        this.fire("running");
+    },
 
-  pause: function () {
-    this._paused = true;
-  },
+    /**
+     * Method called when the player is stopped
+     */
+    stop: function() {
+        if (!this._intervalID) return;
+        clearInterval(this._intervalID);
+        this._intervalID = null;
+        this._waitingForBuffer = false;
+        this.fire("stop");
+    },
 
-  release: function () {
-    this._paused = false;
-  },
+    /**
+     * Method called when the player is paused
+     */
+    pause: function() {
+        this._paused = true;
+    },
 
-  getTransitionTime: function () {
-    return this._transitionTime;
-  },
+    /**
+     * Method called when the player is unpaused
+     */
+    release: function() {
+        this._paused = false;
+    },
 
-  isPlaying: function () {
-    return this._intervalID ? true : false;
-  },
+    /**
+     * Get transition time
+     * @returns transition time
+     */
+    getTransitionTime: function() {
+        return this._transitionTime;
+    },
 
-  isWaiting: function () {
-    return this._waitingForBuffer;
-  },
-  isLooped: function () {
-    return this._loop;
-  },
+    /**
+     * Check if the player is playing
+     * @returns flag to check if the player is playing
+     */
+    isPlaying: function() {
+        return this._intervalID ? true : false;
+    },
 
-  setLooped: function (looped) {
-    this._loop = looped;
-    this.fire("loopchange", {
-      loop: looped,
-    });
-  },
 
-  setTransitionTime: function (transitionTime) {
-    this._transitionTime = transitionTime;
-    if (typeof this._buffer === "function") {
-      this._bufferSize = this._buffer.call(
-        this,
-        this._transitionTime,
-        this._minBufferReady,
-        this._loop
-      );
-      console.log("Buffer size changed to " + this._bufferSize);
-    } else {
-      this._bufferSize = this._buffer;
-    }
-    if (this._intervalID) {
-      this.stop();
-      this.start(this._steps);
-    }
-    this.fire("speedchange", {
-      transitionTime: transitionTime,
-      buffer: this._bufferSize,
-    });
-  },
+    /**
+     * Check if the player is waiting
+     * @returns flag to check if the player is waiting
+     */
+    isWaiting: function() {
+        return this._waitingForBuffer;
+    },
 
-  getSteps: function () {
-    return this._steps;
-  },
+    /**
+     * Check if the player has looped
+     * @returns flag to check if the player is in loop
+     */
+    isLooped: function() {
+        return this._loop;
+    },
+
+    /**
+     * Set if the player is looped
+     * @param {boolean} looped flag to define if the player is looped
+     */
+    setLooped: function(looped) {
+        this._loop = looped;
+        this.fire("loopchange", {
+            loop: looped,
+        });
+    },
+
+    /**
+     * Set transition time
+     * @param {number} transitionTime Transition time
+     */
+    setTransitionTime: function(transitionTime) {
+        this._transitionTime = transitionTime;
+        if (typeof this._buffer === "function") {
+            this._bufferSize = this._buffer.call(
+                this,
+                this._transitionTime,
+                this._minBufferReady,
+                this._loop
+            );
+            console.log("Buffer size changed to " + this._bufferSize);
+        } else {
+            this._bufferSize = this._buffer;
+        }
+        if (this._intervalID) {
+            this.stop();
+            this.start(this._steps);
+        }
+        this.fire("speedchange", {
+            transitionTime: transitionTime,
+            buffer: this._bufferSize,
+        });
+    },
+
+    /**
+     * Get player steps
+     * @returns player steps
+     */
+    getSteps: function() {
+        return this._steps;
+    },
 });

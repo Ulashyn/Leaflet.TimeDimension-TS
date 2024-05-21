@@ -1,128 +1,197 @@
 import {
-  Draggable,
-  Map,
-  Control,
-  Util,
-  DomUtil,
-  DomEvent,
-  point,
+    Draggable,
+    Map,
+    Control,
+    Util,
+    DomUtil,
+    DomEvent,
+    point,
 } from "leaflet";
 
-import { Player } from './leaflet.timedimension.player';
+import {
+    Player
+} from './leaflet.timedimension.player';
 import * as timeDimensionModule from './leaflet.timedimension';
+
 /*
  * Leaflet control to manage a timeDimension
  */
 export const KnobControl = Draggable.extend({
-  options: {
-    className: "knob",
-    step: 1,
-    rangeMin: 0,
-    rangeMax: 10,
-  },
-  initialize: function (slider, options) {
-    Util.setOptions(this, options);
-    this._element = DomUtil.create(
-      "div",
-      this.options.className || "knob",
-      slider
-    );
-    // ts-ignore
-    Draggable.prototype.initialize.call(this, this._element, this._element);
+    options: {
+        className: "knob",
+        step: 1,
+        rangeMin: 0,
+        rangeMax: 10,
+    },
 
-    this._container = slider;
-    this.on(
-      "predrag",
-      function () {
-        this._newPos.y = 0;
-        this._newPos.x = this._adjustX(this._newPos.x);
-      },
-      this
-    );
-    this.on("dragstart", function () {
-      DomUtil.addClass(slider, "dragging");
-    });
-    this.on("dragend", function () {
-      DomUtil.removeClass(slider, "dragging");
-    });
-    DomEvent.on(
-      this._element,
-      "dblclick",
-      function (e) {
-        this.fire("dblclick", e);
-      },
-      this
-    );
-    DomEvent.disableClickPropagation(this._element);
-    this.enable();
-  },
+    /**
+     * UI slider constructor
+     * @param {DOM} slider Html slider DOM 
+     * @param {object} options Object with slider settings
+     * @returns Instance of timedimension slider
+     */
+    initialize: function(slider, options) {
+        Util.setOptions(this, options);
+        this._element = DomUtil.create(
+            "div",
+            this.options.className || "knob",
+            slider
+        );
+        // ts-ignore
+        Draggable.prototype.initialize.call(this, this._element, this._element);
 
-  _getProjectionCoef: function () {
-    return (
-      (this.options.rangeMax - this.options.rangeMin) /
-      (this._container.offsetWidth || this._container.style.width)
-    );
-  },
-  _update: function () {
-    this.setPosition(DomUtil.getPosition(this._element).x);
-  },
-  _adjustX: function (x) {
-    var value = this._toValue(x) || this.getMinValue();
-    return this._toX(this._adjustValue(value));
-  },
+        this._container = slider;
+        this.on(
+            "predrag",
+            function() {
+                this._newPos.y = 0;
+                this._newPos.x = this._adjustX(this._newPos.x);
+            },
+            this
+        );
+        this.on("dragstart", function() {
+            DomUtil.addClass(slider, "dragging");
+        });
+        this.on("dragend", function() {
+            DomUtil.removeClass(slider, "dragging");
+        });
+        DomEvent.on(
+            this._element,
+            "dblclick",
+            function(e) {
+                this.fire("dblclick", e);
+            },
+            this
+        );
+        DomEvent.disableClickPropagation(this._element);
+        this.enable();
+    },
 
-  _adjustValue: function (value) {
-    value = Math.max(this.getMinValue(), Math.min(this.getMaxValue(), value)); //clamp value
-    value = value - this.options.rangeMin; //offsets to zero
+    /**
+     * Get projection coefficient
+     * @returns projection coefficient as number
+     */
+    _getProjectionCoef: function() {
+        return (
+            (this.options.rangeMax - this.options.rangeMin) /
+            (this._container.offsetWidth || this._container.style.width)
+        );
+    },
 
-    //snap the value to the closet step
-    value = Math.round(value / this.options.step) * this.options.step;
-    value = value + this.options.rangeMin; //restore offset
-    value = Math.round(value * 100) / 100; // *100/100 to avoid floating point precision problems
+    /**
+     * Update the slider UI
+     */
+    _update: function() {
+        this.setPosition(DomUtil.getPosition(this._element).x);
+    },
 
-    return value;
-  },
+    /**
+     * Adjust slider x position based on user click 
+     * @param {number} x User click x position
+     * @returns adjusted value
+     */
+    _adjustX: function(x) {
+        var value = this._toValue(x) || this.getMinValue();
+        return this._toX(this._adjustValue(value));
+    },
 
-  _toX: function (value) {
-    var x = (value - this.options.rangeMin) / this._getProjectionCoef();
-    //console.log('toX', value, x);
-    return x;
-  },
+    /**
+     * Adjust internal slider x value
+     * @param {number} value Value x to be adjusted 
+     * @returns adjusted value
+     */
+    _adjustValue: function(value) {
+        value = Math.max(this.getMinValue(), Math.min(this.getMaxValue(), value)); //clamp value
+        value = value - this.options.rangeMin; //offsets to zero
 
-  _toValue: function (x) {
-    var v = x * this._getProjectionCoef() + this.options.rangeMin;
-    //console.log('toValue', x, v);
-    return v;
-  },
+        //snap the value to the closet step
+        value = Math.round(value / this.options.step) * this.options.step;
+        value = value + this.options.rangeMin; //restore offset
+        value = Math.round(value * 100) / 100; // *100/100 to avoid floating point precision problems
 
-  getMinValue: function () {
-    return this.options.minValue || this.options.rangeMin;
-  },
-  getMaxValue: function () {
-    return this.options.maxValue || this.options.rangeMax;
-  },
+        return value;
+    },
 
-  setStep: function (step) {
-    this.options.step = step;
-    this._update();
-  },
+    /**
+     * Adjust value close to X based on the projection coefficient
+     * @param {number} value value to be adjusted 
+     * @returns adjusted value
+     */
+    _toX: function(value) {
+        var x = (value - this.options.rangeMin) / this._getProjectionCoef();
+        //console.log('toX', value, x);
+        return x;
+    },
 
-  setPosition: function (x) {
-    DomUtil.setPosition(this._element, point(this._adjustX(x), 0));
-    this.fire("positionchanged");
-  },
-  getPosition: function () {
-    return DomUtil.getPosition(this._element).x;
-  },
+    /**
+     * Adjust value close to the value based on the projection coefficient
+     * @param {number} value value to be adjusted 
+     * @returns adjusted value
+     */
+    _toValue: function(x) {
+        var v = x * this._getProjectionCoef() + this.options.rangeMin;
+        //console.log('toValue', x, v);
+        return v;
+    },
 
-  setValue: function (v) {
-    //console.log('slider value', v);
-    this.setPosition(this._toX(v));
-  },
+    /**
+     * Get mininal slider value
+     * @returns minimal slider value
+     */
+    getMinValue: function() {
+        return this.options.minValue || this.options.rangeMin;
+    },
 
-  getValue: function () {
-    return this._adjustValue(this._toValue(this.getPosition()));
-  },
+    /**
+     * Get maximal slider value
+     * @returns maximal slider value
+     */
+    getMaxValue: function() {
+        return this.options.maxValue || this.options.rangeMax;
+    },
+
+    /**
+     * Set step value
+     * @param {number} step new step value
+     */
+    setStep: function(step) {
+        this.options.step = step;
+        this._update();
+    },
+
+    /**
+     * Set slider DOM position
+     * @param {number} x new slider position
+     */
+    setPosition: function(x) {
+        DomUtil.setPosition(this._element, point(this._adjustX(x), 0));
+        this.fire("positionchanged");
+    },
+
+    /**
+     * Get slider original x position
+     * @returns slider original x position
+     */
+    getPosition: function() {
+        return DomUtil.getPosition(this._element).x;
+    },
+
+    /**
+     * Set slider position value
+     * @param {number} v new position value
+     */
+    setValue: function(v) {
+        //console.log('slider value', v);
+        this.setPosition(this._toX(v));
+    },
+
+    /**
+     * Get slider fixed position value
+     * @returns fixed position value
+     */
+    getValue: function() {
+        return this._adjustValue(this._toValue(this.getPosition()));
+    },
 });
 
 /*
@@ -130,655 +199,781 @@ export const KnobControl = Draggable.extend({
  */
 
 export const TimeDimensionControl = Control.extend({
-  options: {
-    styleNS: "leaflet-control-timecontrol",
-    position: "bottomleft",
-    title: "Time Control",
-    backwardButton: true,
-    forwardButton: true,
-    playButton: true,
-    playReverseButton: false,
-    loopButton: false,
-    displayDate: true,
-    dateFontWeight: null,
-    timeSlider: true,
-    timeSliderDragUpdate: false,
-    limitSliders: false,
-    limitMinimumRange: 5,
-    speedSlider: true,
-    minSpeed: 0.1,
-    maxSpeed: 10,
-    speedStep: 0.1,
-    timeSteps: 1,
-    autoPlay: false,
-    playerOptions: {
-      transitionTime: 1000,
+    options: {
+        styleNS: "leaflet-control-timecontrol",
+        position: "bottomleft",
+        title: "Time Control",
+        backwardButton: true,
+        forwardButton: true,
+        playButton: true,
+        playReverseButton: false,
+        loopButton: false,
+        displayDate: true,
+        dateFontWeight: null,
+        timeSlider: true,
+        timeSliderDragUpdate: false,
+        limitSliders: false,
+        limitMinimumRange: 5,
+        speedSlider: true,
+        minSpeed: 0.1,
+        maxSpeed: 10,
+        speedStep: 0.1,
+        timeSteps: 1,
+        autoPlay: false,
+        playerOptions: {
+            transitionTime: 1000,
+        },
+        timeZones: ["UTC", "Local", "LocalDay"],
+        onlyUTC: false,
     },
-    timeZones: ["UTC", "Local", "LocalDay"],
-    onlyUTC: false,
-  },
 
-  initialize: function (options) {
-    Util.setOptions(this, options);
-    Control.prototype.initialize.call(this, options);
-    this._timeZoneIndex = 0;
-    this._timeDimension = this.options.timeDimension || null;
-  },
+    /**
+     * UI controller constructor
+     * @param {object} options Object with controller settings
+     * @returns Instance of timedimension controller
+     */
+    initialize: function(options) {
+        Util.setOptions(this, options);
+        Control.prototype.initialize.call(this, options);
+        this._timeZoneIndex = 0;
+        this._timeDimension = this.options.timeDimension || null;
+    },
 
-  onAdd: function (map) {
-    var container;
-    this._map = map;
-    if (!this._timeDimension && map.timeDimension) {
-      this._timeDimension = map.timeDimension;
-    }
-    this._initPlayer();
+    /**
+     * Method called when adding this controller to a map
+     * @param {L.Map} map Leaflet map
+     */
+    onAdd: function(map) {
+        var container;
+        this._map = map;
+        if (!this._timeDimension && map.timeDimension) {
+            this._timeDimension = map.timeDimension;
+        }
+        this._initPlayer();
 
-    container = DomUtil.create(
-      "div",
-      "leaflet-bar leaflet-bar-horizontal leaflet-bar-timecontrol"
-    );
-    if (this.options.backwardButton) {
-      this._buttonBackward = this._createButton("Backward", container);
-    }
-    if (this.options.playReverseButton) {
-      this._buttonPlayReversePause = this._createButton(
-        "Play Reverse",
-        container
-      );
-    }
-    if (this.options.playButton) {
-      this._buttonPlayPause = this._createButton("Play", container);
-    }
-    if (this.options.forwardButton) {
-      this._buttonForward = this._createButton("Forward", container);
-    }
-    if (this.options.loopButton) {
-      this._buttonLoop = this._createButton("Loop", container);
-    }
-    if (this.options.displayDate) {
-      this._displayDate = this._createButton("Date", container);
-    }
-    if (this.options.timeSlider) {
-      this._sliderTime = this._createSliderTime(
-        this.options.styleNS + " timecontrol-slider timecontrol-dateslider",
-        container
-      );
-    }
-    if (this.options.speedSlider) {
-      this._sliderSpeed = this._createSliderSpeed(
-        this.options.styleNS + " timecontrol-slider timecontrol-speed",
-        container
-      );
-    }
-
-    this._steps = this.options.timeSteps || 1;
-
-    this._timeDimension.on("timeload", this._update, this);
-    this._timeDimension.on("timeload", this._onPlayerStateChange, this);
-    this._timeDimension.on("timeloading", this._onTimeLoading, this);
-
-    this._timeDimension.on(
-      "limitschanged availabletimeschanged",
-      this._onTimeLimitsChanged,
-      this
-    );
-
-    DomEvent.disableClickPropagation(container);
-
-    return container;
-  },
-  addTo: function (...args) {
-    //To be notified AFTER the component was added to the DOM
-    Control.prototype.addTo.apply(this, args);
-    this._onPlayerStateChange();
-    this._onTimeLimitsChanged();
-    this._update();
-    return this;
-  },
-  onRemove: function () {
-    this._player.off(
-      "play stop running loopchange speedchange",
-      this._onPlayerStateChange,
-      this
-    );
-    this._player.off("waiting", this._onPlayerWaiting, this);
-    //this._player = null;  keep it for later re-add
-
-    this._timeDimension.off("timeload", this._update, this);
-    this._timeDimension.off("timeload", this._onPlayerStateChange, this);
-    this._timeDimension.off("timeloading", this._onTimeLoading, this);
-    this._timeDimension.off(
-      "limitschanged availabletimeschanged",
-      this._onTimeLimitsChanged,
-      this
-    );
-  },
-
-  _initPlayer: function () {
-    if (!this._player) {
-      // in case of remove/add
-      if (this.options.player) {
-        this._player = this.options.player;
-      } else {
-        this._player = new Player(
-          this.options.playerOptions,
-          this._timeDimension
+        container = DomUtil.create(
+            "div",
+            "leaflet-bar leaflet-bar-horizontal leaflet-bar-timecontrol"
         );
-      }
-    }
-    if (this.options.autoPlay) {
-      this._player.start(this._steps);
-    }
-    this._player.on(
-      "play stop running loopchange speedchange",
-      this._onPlayerStateChange,
-      this
-    );
-    this._player.on("waiting", this._onPlayerWaiting, this);
-    this._onPlayerStateChange();
-  },
-
-  _onTimeLoading: function (data) {
-    if (data.time == this._timeDimension.getCurrentTime()) {
-      if (this._displayDate) {
-        DomUtil.addClass(this._displayDate, "loading");
-      }
-    }
-  },
-
-  _onTimeLimitsChanged: function () {
-    var lowerIndex = this._timeDimension.getLowerLimitIndex(),
-      upperIndex = this._timeDimension.getUpperLimitIndex(),
-      max = this._timeDimension.getAvailableTimes().length - 1;
-
-    if (this._limitKnobs) {
-      this._limitKnobs[0].options.rangeMax = max;
-      this._limitKnobs[1].options.rangeMax = max;
-      this._limitKnobs[0].setValue(lowerIndex || 0);
-      this._limitKnobs[1].setValue(upperIndex || max);
-    }
-    if (this._sliderTime) {
-      this._sliderTime.options.rangeMax = max;
-      this._sliderTime._update();
-    }
-  },
-
-  _onPlayerWaiting: function (evt) {
-    if (this._buttonPlayPause && this._player.getSteps() > 0) {
-      DomUtil.addClass(this._buttonPlayPause, "loading");
-      this._buttonPlayPause.innerHTML = this._getDisplayLoadingText(
-        evt.available,
-        evt.buffer
-      );
-    }
-    if (this._buttonPlayReversePause && this._player.getSteps() < 0) {
-      DomUtil.addClass(this._buttonPlayReversePause, "loading");
-      this._buttonPlayReversePause.innerHTML = this._getDisplayLoadingText(
-        evt.available,
-        evt.buffer
-      );
-    }
-  },
-  _onPlayerStateChange: function () {
-    if (this._buttonPlayPause) {
-      if (this._player.isPlaying() && this._player.getSteps() > 0) {
-        DomUtil.addClass(this._buttonPlayPause, "pause");
-        DomUtil.removeClass(this._buttonPlayPause, "play");
-      } else {
-        DomUtil.removeClass(this._buttonPlayPause, "pause");
-        DomUtil.addClass(this._buttonPlayPause, "play");
-      }
-      if (this._player.isWaiting() && this._player.getSteps() > 0) {
-        DomUtil.addClass(this._buttonPlayPause, "loading");
-      } else {
-        this._buttonPlayPause.innerHTML = "";
-        DomUtil.removeClass(this._buttonPlayPause, "loading");
-      }
-    }
-    if (this._buttonPlayReversePause) {
-      if (this._player.isPlaying() && this._player.getSteps() < 0) {
-        DomUtil.addClass(this._buttonPlayReversePause, "pause");
-      } else {
-        DomUtil.removeClass(this._buttonPlayReversePause, "pause");
-      }
-      if (this._player.isWaiting() && this._player.getSteps() < 0) {
-        DomUtil.addClass(this._buttonPlayReversePause, "loading");
-      } else {
-        this._buttonPlayReversePause.innerHTML = "";
-        DomUtil.removeClass(this._buttonPlayReversePause, "loading");
-      }
-    }
-    if (this._buttonLoop) {
-      if (this._player.isLooped()) {
-        DomUtil.addClass(this._buttonLoop, "looped");
-      } else {
-        DomUtil.removeClass(this._buttonLoop, "looped");
-      }
-    }
-    if (this._sliderSpeed && !this._draggingSpeed) {
-      var speed = this._player.getTransitionTime() || 1000; //transitionTime
-      speed = Math.round(10000 / speed) / 10; // 1s / transition
-      this._sliderSpeed.setValue(speed);
-    }
-  },
-
-  _update: function () {
-    if (!this._timeDimension) {
-      return;
-    }
-    if (this._timeDimension.getCurrentTimeIndex() >= 0) {
-      var date = new Date(this._timeDimension.getCurrentTime());
-      if (this._displayDate) {
-        DomUtil.removeClass(this._displayDate, "loading");
-        this._displayDate.innerHTML = this._getDisplayDateFormat(date);
-      }
-      if (this._sliderTime && !this._slidingTimeSlider) {
-        this._sliderTime.setValue(this._timeDimension.getCurrentTimeIndex());
-      }
-    } else {
-      if (this._displayDate) {
-        this._displayDate.innerHTML = this._getDisplayNoTimeError();
-      }
-    }
-  },
-
-  _createButton: function (title, container) {
-    var link = DomUtil.create(
-      "a",
-      this.options.styleNS + " timecontrol-" + title.toLowerCase(),
-      container
-    );
-    link.href = "#";
-    link.title = title;
-    if (this.options.displayDate && this.options.dateFontWeight) {
-      link.style.fontWeight = this.options.dateFontWeight;
-    }
-    if (title == "Date") {
-      DomUtil.addClass(link, this.options.timeZones[0].toLowerCase());
-    }
-
-    DomEvent.addListener(link, "click", DomEvent.stopPropagation)
-      .addListener(link, "click", DomEvent.preventDefault)
-      .addListener(
-        link,
-        "click",
-        this["_button" + title.replace(/ /i, "") + "Clicked"],
-        this
-      );
-
-    return link;
-  },
-
-  _createSliderTime: function (className, container) {
-    var sliderContainer, sliderbar, max, knob, limits;
-    sliderContainer = DomUtil.create("div", className, container);
-    /*DomEvent
-        .addListener(sliderContainer, 'click', DomEvent.stopPropagation)
-        .addListener(sliderContainer, 'click', DomEvent.preventDefault);*/
-
-    sliderbar = DomUtil.create("div", "slider", sliderContainer);
-    max = this._timeDimension.getAvailableTimes().length - 1;
-
-    if (this.options.limitSliders) {
-      limits = this._limitKnobs = this._createLimitKnobs(sliderbar);
-    }
-
-    knob = new KnobControl(sliderbar, {
-      className: "knob main",
-      rangeMin: 0,
-      rangeMax: max,
-    });
-    knob.on(
-      "dragend",
-      function (e) {
-        if(knob.options.rangeMax === 0)
-          return
-        var value = e.target.getValue();
-        this._sliderTimeValueChanged(value);
-        this._slidingTimeSlider = false;
-      },
-      this
-    );
-    knob.on(
-      "drag",
-      function (e) {
-        if(knob.options.rangeMax === 0)
-          return
-        this._slidingTimeSlider = true;
-        var time = this._timeDimension.getAvailableTimes()[e.target.getValue()];
-        if (time) {
-          var date = new Date(time);
-          if (this._displayDate) {
-            this._displayDate.innerHTML = this._getDisplayDateFormat(date);
-          }
-          if (this.options.timeSliderDragUpdate) {
-            this._sliderTimeValueChanged(e.target.getValue());
-          }
+        if (this.options.backwardButton) {
+            this._buttonBackward = this._createButton("Backward", container);
         }
-      },
-      this
-    );
+        if (this.options.playReverseButton) {
+            this._buttonPlayReversePause = this._createButton(
+                "Play Reverse",
+                container
+            );
+        }
+        if (this.options.playButton) {
+            this._buttonPlayPause = this._createButton("Play", container);
+        }
+        if (this.options.forwardButton) {
+            this._buttonForward = this._createButton("Forward", container);
+        }
+        if (this.options.loopButton) {
+            this._buttonLoop = this._createButton("Loop", container);
+        }
+        if (this.options.displayDate) {
+            this._displayDate = this._createButton("Date", container);
+        }
+        if (this.options.timeSlider) {
+            this._sliderTime = this._createSliderTime(
+                this.options.styleNS + " timecontrol-slider timecontrol-dateslider",
+                container
+            );
+        }
+        if (this.options.speedSlider) {
+            this._sliderSpeed = this._createSliderSpeed(
+                this.options.styleNS + " timecontrol-slider timecontrol-speed",
+                container
+            );
+        }
 
-    knob.on(
-      "predrag",
-      function () {
-        var minPosition, maxPosition;
-        if (limits) {
-          //limits the position between lower and upper knobs
-          minPosition = limits[0].getPosition();
-          maxPosition = limits[1].getPosition();
-          if (this._newPos.x < minPosition) {
-            this._newPos.x = minPosition;
-          }
-          if (this._newPos.x > maxPosition) {
-            this._newPos.x = maxPosition;
-          }
+        this._steps = this.options.timeSteps || 1;
+
+        this._timeDimension.on("timeload", this._update, this);
+        this._timeDimension.on("timeload", this._onPlayerStateChange, this);
+        this._timeDimension.on("timeloading", this._onTimeLoading, this);
+
+        this._timeDimension.on(
+            "limitschanged availabletimeschanged",
+            this._onTimeLimitsChanged,
+            this
+        );
+
+        DomEvent.disableClickPropagation(container);
+
+        return container;
+    },
+
+    /**
+     * Method called after the component was added to the DOM
+     */
+    addTo: function(...args) {
+        //To be notified AFTER the component was added to the DOM
+        Control.prototype.addTo.apply(this, args);
+        this._onPlayerStateChange();
+        this._onTimeLimitsChanged();
+        this._update();
+        return this;
+    },
+
+    /**
+     * Method called when the this controller is removed from the map
+     */
+    onRemove: function() {
+        this._player.off(
+            "play stop running loopchange speedchange",
+            this._onPlayerStateChange,
+            this
+        );
+        this._player.off("waiting", this._onPlayerWaiting, this);
+        //this._player = null;  keep it for later re-add
+
+        this._timeDimension.off("timeload", this._update, this);
+        this._timeDimension.off("timeload", this._onPlayerStateChange, this);
+        this._timeDimension.off("timeloading", this._onTimeLoading, this);
+        this._timeDimension.off(
+            "limitschanged availabletimeschanged",
+            this._onTimeLimitsChanged,
+            this
+        );
+    },
+
+    /**
+     * Method called to initiate the player
+     */
+    _initPlayer: function() {
+        if (!this._player) {
+            // in case of remove/add
+            if (this.options.player) {
+                this._player = this.options.player;
+            } else {
+                this._player = new Player(
+                    this.options.playerOptions,
+                    this._timeDimension
+                );
+            }
         }
-      },
-      knob
-    );
-    DomEvent.on(
-      sliderbar,
-      "click",
-      function (e) {
-        if (DomUtil.hasClass(e.target, "knob")) {
-          return; //prevent value changes on drag release
+        if (this.options.autoPlay) {
+            this._player.start(this._steps);
         }
-        var first = e.touches && e.touches.length === 1 ? e.touches[0] : e,
-          x = DomEvent.getMousePosition(first, sliderbar).x;
-        if (limits) {
-          // limits exits
-          if (limits[0].getPosition() <= x && x <= limits[1].getPosition()) {
-            knob.setPosition(x);
-            this._sliderTimeValueChanged(knob.getValue());
-          }
+        this._player.on(
+            "play stop running loopchange speedchange",
+            this._onPlayerStateChange,
+            this
+        );
+        this._player.on("waiting", this._onPlayerWaiting, this);
+        this._onPlayerStateChange();
+    },
+
+    /**
+     * Trigger called while waiting for data
+     * @param {object} data 
+     */
+    _onTimeLoading: function(data) {
+        if (data.time == this._timeDimension.getCurrentTime()) {
+            if (this._displayDate) {
+                DomUtil.addClass(this._displayDate, "loading");
+            }
+        }
+    },
+
+    /**
+     * Trigger called when time limits changes
+     */
+    _onTimeLimitsChanged: function() {
+        var lowerIndex = this._timeDimension.getLowerLimitIndex(),
+            upperIndex = this._timeDimension.getUpperLimitIndex(),
+            max = this._timeDimension.getAvailableTimes().length - 1;
+
+        if (this._limitKnobs) {
+            this._limitKnobs[0].options.rangeMax = max;
+            this._limitKnobs[1].options.rangeMax = max;
+            this._limitKnobs[0].setValue(lowerIndex || 0);
+            this._limitKnobs[1].setValue(upperIndex || max);
+        }
+        if (this._sliderTime) {
+            this._sliderTime.options.rangeMax = max;
+            this._sliderTime._update();
+        }
+    },
+
+    /**
+     * Method called to update the player instance while waiting for data
+     * @param {object} evt
+     */
+    _onPlayerWaiting: function(evt) {
+        if (this._buttonPlayPause && this._player.getSteps() > 0) {
+            DomUtil.addClass(this._buttonPlayPause, "loading");
+            this._buttonPlayPause.innerHTML = this._getDisplayLoadingText(
+                evt.available,
+                evt.buffer
+            );
+        }
+        if (this._buttonPlayReversePause && this._player.getSteps() < 0) {
+            DomUtil.addClass(this._buttonPlayReversePause, "loading");
+            this._buttonPlayReversePause.innerHTML = this._getDisplayLoadingText(
+                evt.available,
+                evt.buffer
+            );
+        }
+    },
+
+    /**
+     * Method called whent the user updates the player instance
+     */
+    _onPlayerStateChange: function() {
+        if (this._buttonPlayPause) {
+            if (this._player.isPlaying() && this._player.getSteps() > 0) {
+                DomUtil.addClass(this._buttonPlayPause, "pause");
+                DomUtil.removeClass(this._buttonPlayPause, "play");
+            } else {
+                DomUtil.removeClass(this._buttonPlayPause, "pause");
+                DomUtil.addClass(this._buttonPlayPause, "play");
+            }
+            if (this._player.isWaiting() && this._player.getSteps() > 0) {
+                DomUtil.addClass(this._buttonPlayPause, "loading");
+            } else {
+                this._buttonPlayPause.innerHTML = "";
+                DomUtil.removeClass(this._buttonPlayPause, "loading");
+            }
+        }
+        if (this._buttonPlayReversePause) {
+            if (this._player.isPlaying() && this._player.getSteps() < 0) {
+                DomUtil.addClass(this._buttonPlayReversePause, "pause");
+            } else {
+                DomUtil.removeClass(this._buttonPlayReversePause, "pause");
+            }
+            if (this._player.isWaiting() && this._player.getSteps() < 0) {
+                DomUtil.addClass(this._buttonPlayReversePause, "loading");
+            } else {
+                this._buttonPlayReversePause.innerHTML = "";
+                DomUtil.removeClass(this._buttonPlayReversePause, "loading");
+            }
+        }
+        if (this._buttonLoop) {
+            if (this._player.isLooped()) {
+                DomUtil.addClass(this._buttonLoop, "looped");
+            } else {
+                DomUtil.removeClass(this._buttonLoop, "looped");
+            }
+        }
+        if (this._sliderSpeed && !this._draggingSpeed) {
+            var speed = this._player.getTransitionTime() || 1000; //transitionTime
+            speed = Math.round(10000 / speed) / 10; // 1s / transition
+            this._sliderSpeed.setValue(speed);
+        }
+    },
+
+    /**
+     * Method called to update the controller instance
+     */
+    _update: function() {
+        if (!this._timeDimension) {
+            return;
+        }
+        if (this._timeDimension.getCurrentTimeIndex() >= 0) {
+            var date = new Date(this._timeDimension.getCurrentTime());
+            if (this._displayDate) {
+                DomUtil.removeClass(this._displayDate, "loading");
+                this._displayDate.innerHTML = this._getDisplayDateFormat(date);
+            }
+            if (this._sliderTime && !this._slidingTimeSlider) {
+                this._sliderTime.setValue(this._timeDimension.getCurrentTimeIndex());
+            }
         } else {
-          knob.setPosition(x);
-          if(knob.options.rangeMax === 0)
+            if (this._displayDate) {
+                this._displayDate.innerHTML = this._getDisplayNoTimeError();
+            }
+        }
+    },
+
+    /**
+     * Method called to create a new button into the DOM
+     * @param {string} title title of the button
+     * @param {DOM} container DOM value of the button 
+     * @returns new button
+     */
+    _createButton: function(title, container) {
+        var link = DomUtil.create(
+            "a",
+            this.options.styleNS + " timecontrol-" + title.toLowerCase(),
+            container
+        );
+        link.href = "#";
+        link.title = title;
+        if (this.options.displayDate && this.options.dateFontWeight) {
+            link.style.fontWeight = this.options.dateFontWeight;
+        }
+        if (title == "Date") {
+            DomUtil.addClass(link, this.options.timeZones[0].toLowerCase());
+        }
+
+        DomEvent.addListener(link, "click", DomEvent.stopPropagation)
+            .addListener(link, "click", DomEvent.preventDefault)
+            .addListener(
+                link,
+                "click",
+                this["_button" + title.replace(/ /i, "") + "Clicked"],
+                this
+            );
+
+        return link;
+    },
+
+    /**
+     * Method called to create a new slider into the DOM
+     * @param {string} className html class name properties
+     * @param {DOM} container DOM value of the slider 
+     * @returns new slider
+     */
+    _createSliderTime: function(className, container) {
+        var sliderContainer, sliderbar, max, knob, limits;
+        sliderContainer = DomUtil.create("div", className, container);
+        /*DomEvent
+            .addListener(sliderContainer, 'click', DomEvent.stopPropagation)
+            .addListener(sliderContainer, 'click', DomEvent.preventDefault);*/
+
+        sliderbar = DomUtil.create("div", "slider", sliderContainer);
+        max = this._timeDimension.getAvailableTimes().length - 1;
+
+        if (this.options.limitSliders) {
+            limits = this._limitKnobs = this._createLimitKnobs(sliderbar);
+        }
+
+        knob = new KnobControl(sliderbar, {
+            className: "knob main",
+            rangeMin: 0,
+            rangeMax: max,
+        });
+        knob.on(
+            "dragend",
+            function(e) {
+                if (knob.options.rangeMax === 0)
+                    return
+                var value = e.target.getValue();
+                this._sliderTimeValueChanged(value);
+                this._slidingTimeSlider = false;
+            },
+            this
+        );
+        knob.on(
+            "drag",
+            function(e) {
+                if (knob.options.rangeMax === 0)
+                    return
+                this._slidingTimeSlider = true;
+                var time = this._timeDimension.getAvailableTimes()[e.target.getValue()];
+                if (time) {
+                    var date = new Date(time);
+                    if (this._displayDate) {
+                        this._displayDate.innerHTML = this._getDisplayDateFormat(date);
+                    }
+                    if (this.options.timeSliderDragUpdate) {
+                        this._sliderTimeValueChanged(e.target.getValue());
+                    }
+                }
+            },
+            this
+        );
+
+        knob.on(
+            "predrag",
+            function() {
+                var minPosition, maxPosition;
+                if (limits) {
+                    //limits the position between lower and upper knobs
+                    minPosition = limits[0].getPosition();
+                    maxPosition = limits[1].getPosition();
+                    if (this._newPos.x < minPosition) {
+                        this._newPos.x = minPosition;
+                    }
+                    if (this._newPos.x > maxPosition) {
+                        this._newPos.x = maxPosition;
+                    }
+                }
+            },
+            knob
+        );
+        DomEvent.on(
+            sliderbar,
+            "click",
+            function(e) {
+                if (DomUtil.hasClass(e.target, "knob")) {
+                    return; //prevent value changes on drag release
+                }
+                var first = e.touches && e.touches.length === 1 ? e.touches[0] : e,
+                    x = DomEvent.getMousePosition(first, sliderbar).x;
+                if (limits) {
+                    // limits exits
+                    if (limits[0].getPosition() <= x && x <= limits[1].getPosition()) {
+                        knob.setPosition(x);
+                        this._sliderTimeValueChanged(knob.getValue());
+                    }
+                } else {
+                    knob.setPosition(x);
+                    if (knob.options.rangeMax === 0)
+                        return
+                    this._sliderTimeValueChanged(knob.getValue());
+                }
+            },
+            this
+        );
+        knob.setPosition(0);
+
+        return knob;
+    },
+
+    /**
+     * Method called to create a new knob into the DOM
+     * @param {DOM} slidebar DOM value of the slider 
+     * @returns new knob
+     */
+    _createLimitKnobs: function(sliderbar) {
+        DomUtil.addClass(sliderbar, "has-limits");
+        var max = this._timeDimension.getAvailableTimes().length - 1;
+        var rangeBar = DomUtil.create("div", "range", sliderbar);
+        var lknob = new UI.Knob(sliderbar, {
+            className: "knob lower",
+            rangeMin: 0,
+            rangeMax: max,
+        });
+        var uknob = new KnobControl(sliderbar, {
+            className: "knob upper",
+            rangeMin: 0,
+            rangeMax: max,
+        });
+
+        DomUtil.setPosition(rangeBar, 0);
+        lknob.setPosition(0);
+        uknob.setPosition(max);
+
+        //Add listeners for value changes
+        lknob.on(
+            "dragend",
+            function(e) {
+                var value = e.target.getValue();
+                this._sliderLimitsValueChanged(value, uknob.getValue());
+            },
+            this
+        );
+        uknob.on(
+            "dragend",
+            function(e) {
+                var value = e.target.getValue();
+                this._sliderLimitsValueChanged(lknob.getValue(), value);
+            },
+            this
+        );
+
+        //Add listeners to position the range bar
+        lknob.on(
+            "drag positionchanged",
+            function() {
+                DomUtil.setPosition(rangeBar, L.point(lknob.getPosition(), 0));
+                rangeBar.style.width = uknob.getPosition() - lknob.getPosition() + "px";
+            },
+            this
+        );
+
+        uknob.on(
+            "drag positionchanged",
+            function() {
+                rangeBar.style.width = uknob.getPosition() - lknob.getPosition() + "px";
+            },
+            this
+        );
+
+        //Add listeners to prevent overlaps
+        uknob.on(
+            "predrag",
+            function() {
+                //bond upper to lower
+                var lowerPosition = lknob._toX(
+                    lknob.getValue() + this.options.limitMinimumRange
+                );
+                if (uknob._newPos.x <= lowerPosition) {
+                    uknob._newPos.x = lowerPosition;
+                }
+            },
+            this
+        );
+
+        lknob.on(
+            "predrag",
+            function() {
+                //bond lower to upper
+                var upperPosition = uknob._toX(
+                    uknob.getValue() - this.options.limitMinimumRange
+                );
+                if (lknob._newPos.x >= upperPosition) {
+                    lknob._newPos.x = upperPosition;
+                }
+            },
+            this
+        );
+
+        lknob.on(
+            "dblclick",
+            function() {
+                this._timeDimension.setLowerLimitIndex(0);
+            },
+            this
+        );
+        uknob.on(
+            "dblclick",
+            function() {
+                this._timeDimension.setUpperLimitIndex(
+                    this._timeDimension.getAvailableTimes().length - 1
+                );
+            },
+            this
+        );
+
+        return [lknob, uknob];
+    },
+
+    /**
+     * Method called to create a new slider speed into the DOM
+     * @param {string} className html class name properties
+     * @param {DOM} container DOM value of the slider speed
+     * @returns new slider speed
+     */
+    _createSliderSpeed: function(className, container) {
+        var sliderContainer = DomUtil.create("div", className, container);
+        /* L.DomEvent
+            .addListener(sliderContainer, 'click', L.DomEvent.stopPropagation)
+            .addListener(sliderContainer, 'click', L.DomEvent.preventDefault);
+        */
+        var speedLabel = DomUtil.create("span", "speed", sliderContainer);
+        var sliderbar = DomUtil.create("div", "slider", sliderContainer);
+        var initialSpeed =
+            Math.round(10000 / (this._player.getTransitionTime() || 1000)) / 10;
+        speedLabel.innerHTML = this._getDisplaySpeed(initialSpeed);
+
+        var knob = new KnobControl(sliderbar, {
+            step: this.options.speedStep,
+            rangeMin: this.options.minSpeed,
+            rangeMax: this.options.maxSpeed,
+        });
+
+        knob.on(
+            "dragend",
+            function(e) {
+                var value = e.target.getValue();
+                this._draggingSpeed = false;
+                speedLabel.innerHTML = this._getDisplaySpeed(value);
+                this._sliderSpeedValueChanged(value);
+            },
+            this
+        );
+        knob.on(
+            "drag",
+            function(e) {
+                this._draggingSpeed = true;
+                speedLabel.innerHTML = this._getDisplaySpeed(e.target.getValue());
+            },
+            this
+        );
+        knob.on(
+            "positionchanged",
+            function(e) {
+                speedLabel.innerHTML = this._getDisplaySpeed(e.target.getValue());
+            },
+            this
+        );
+
+        DomEvent.on(
+            sliderbar,
+            "click",
+            function(e) {
+                if (e.target === knob._element) {
+                    return; //prevent value changes on drag release
+                }
+                var first = e.touches && e.touches.length === 1 ? e.touches[0] : e,
+                    x = DomEvent.getMousePosition(first, sliderbar).x;
+                knob.setPosition(x);
+                speedLabel.innerHTML = this._getDisplaySpeed(knob.getValue());
+                this._sliderSpeedValueChanged(knob.getValue());
+            },
+            this
+        );
+        return knob;
+    },
+
+    /**
+     * Set time when backward button is clicked
+     */
+    _buttonBackwardClicked: function() {
+        this._timeDimension.previousTime(this._steps);
+    },
+
+    /**
+     * Set time when foward button is clicked
+     */
+    _buttonForwardClicked: function() {
+        this._timeDimension.nextTime(this._steps);
+    },
+
+    /**
+     * Set loop value when loop button is clicked
+     */
+    _buttonLoopClicked: function() {
+        this._player.setLooped(!this._player.isLooped());
+    },
+
+    /**
+     * Starts and stops the data requests when play button is clicked
+     */
+    _buttonPlayClicked: function() {
+        if (this._player.isPlaying()) {
+            this._player.stop();
+        } else {
+            this._player.start(this._steps);
+        }
+    },
+
+    /**
+     * Activate and deactivate the data flow inversion when reverse button is clicked
+     */
+    _buttonPlayReverseClicked: function() {
+        if (this._player.isPlaying()) {
+            this._player.stop();
+        } else {
+            this._player.start(this._steps * -1);
+        }
+    },
+
+    /**
+     * Change timezone when date button is clicked
+     */
+    _buttonDateClicked: function() {
+        this._switchTimeZone();
+    },
+
+    /**
+     * Set new time value
+     * @param {number} newValue new time value
+     */
+    _sliderTimeValueChanged: function(newValue) {
+        this._timeDimension.setCurrentTimeIndex(newValue);
+    },
+
+    /**
+     * Set new lower limit value
+     * @param {number} lowerLimit new lower limit value
+     * @param {number} upperLimit new upper limit value
+     */
+    _sliderLimitsValueChanged: function(lowerLimit, upperLimit) {
+        this._timeDimension.setLowerLimitIndex(lowerLimit);
+        this._timeDimension.setUpperLimitIndex(upperLimit);
+    },
+
+    /**
+     * Set new speed value
+     * @param {number} newValue new speed value
+     */
+    _sliderSpeedValueChanged: function(newValue) {
+        this._player.setTransitionTime(1000 / newValue);
+    },
+
+    /**
+     * Get current timezone
+     * @returns actual timezone
+     */
+    _getCurrentTimeZone: function() {
+        return this.options.timeZones[this._timeZoneIndex];
+    },
+
+    /**
+     * Method called while switching timezones
+     */
+    _switchTimeZone: function() {
+        if (this.options.onlyUTC) {
             return
-          this._sliderTimeValueChanged(knob.getValue());
         }
-      },
-      this
-    );
-    knob.setPosition(0);
-
-    return knob;
-  },
-
-  _createLimitKnobs: function (sliderbar) {
-    DomUtil.addClass(sliderbar, "has-limits");
-    var max = this._timeDimension.getAvailableTimes().length - 1;
-    var rangeBar = DomUtil.create("div", "range", sliderbar);
-    var lknob = new UI.Knob(sliderbar, {
-      className: "knob lower",
-      rangeMin: 0,
-      rangeMax: max,
-    });
-    var uknob = new KnobControl(sliderbar, {
-      className: "knob upper",
-      rangeMin: 0,
-      rangeMax: max,
-    });
-
-    DomUtil.setPosition(rangeBar, 0);
-    lknob.setPosition(0);
-    uknob.setPosition(max);
-
-    //Add listeners for value changes
-    lknob.on(
-      "dragend",
-      function (e) {
-        var value = e.target.getValue();
-        this._sliderLimitsValueChanged(value, uknob.getValue());
-      },
-      this
-    );
-    uknob.on(
-      "dragend",
-      function (e) {
-        var value = e.target.getValue();
-        this._sliderLimitsValueChanged(lknob.getValue(), value);
-      },
-      this
-    );
-
-    //Add listeners to position the range bar
-    lknob.on(
-      "drag positionchanged",
-      function () {
-        DomUtil.setPosition(rangeBar, L.point(lknob.getPosition(), 0));
-        rangeBar.style.width = uknob.getPosition() - lknob.getPosition() + "px";
-      },
-      this
-    );
-
-    uknob.on(
-      "drag positionchanged",
-      function () {
-        rangeBar.style.width = uknob.getPosition() - lknob.getPosition() + "px";
-      },
-      this
-    );
-
-    //Add listeners to prevent overlaps
-    uknob.on(
-      "predrag",
-      function () {
-        //bond upper to lower
-        var lowerPosition = lknob._toX(
-          lknob.getValue() + this.options.limitMinimumRange
-        );
-        if (uknob._newPos.x <= lowerPosition) {
-          uknob._newPos.x = lowerPosition;
+        if (this._getCurrentTimeZone().toLowerCase() == "utc") {
+            DomUtil.removeClass(this._displayDate, "utc");
         }
-      },
-      this
-    );
-
-    lknob.on(
-      "predrag",
-      function () {
-        //bond lower to upper
-        var upperPosition = uknob._toX(
-          uknob.getValue() - this.options.limitMinimumRange
-        );
-        if (lknob._newPos.x >= upperPosition) {
-          lknob._newPos.x = upperPosition;
+        if (this._getCurrentTimeZone().toLowerCase() == "localday") {
+            DomUtil.removeClass(this._displayDate, "localday");
         }
-      },
-      this
-    );
-
-    lknob.on(
-      "dblclick",
-      function () {
-        this._timeDimension.setLowerLimitIndex(0);
-      },
-      this
-    );
-    uknob.on(
-      "dblclick",
-      function () {
-        this._timeDimension.setUpperLimitIndex(
-          this._timeDimension.getAvailableTimes().length - 1
-        );
-      },
-      this
-    );
-
-    return [lknob, uknob];
-  },
-
-  _createSliderSpeed: function (className, container) {
-    var sliderContainer = DomUtil.create("div", className, container);
-    /* L.DomEvent
-        .addListener(sliderContainer, 'click', L.DomEvent.stopPropagation)
-        .addListener(sliderContainer, 'click', L.DomEvent.preventDefault);
-    */
-    var speedLabel = DomUtil.create("span", "speed", sliderContainer);
-    var sliderbar = DomUtil.create("div", "slider", sliderContainer);
-    var initialSpeed =
-      Math.round(10000 / (this._player.getTransitionTime() || 1000)) / 10;
-    speedLabel.innerHTML = this._getDisplaySpeed(initialSpeed);
-
-    var knob = new KnobControl(sliderbar, {
-      step: this.options.speedStep,
-      rangeMin: this.options.minSpeed,
-      rangeMax: this.options.maxSpeed,
-    });
-
-    knob.on(
-      "dragend",
-      function (e) {
-        var value = e.target.getValue();
-        this._draggingSpeed = false;
-        speedLabel.innerHTML = this._getDisplaySpeed(value);
-        this._sliderSpeedValueChanged(value);
-      },
-      this
-    );
-    knob.on(
-      "drag",
-      function (e) {
-        this._draggingSpeed = true;
-        speedLabel.innerHTML = this._getDisplaySpeed(e.target.getValue());
-      },
-      this
-    );
-    knob.on(
-      "positionchanged",
-      function (e) {
-        speedLabel.innerHTML = this._getDisplaySpeed(e.target.getValue());
-      },
-      this
-    );
-
-    DomEvent.on(
-      sliderbar,
-      "click",
-      function (e) {
-        if (e.target === knob._element) {
-          return; //prevent value changes on drag release
+        this._timeZoneIndex = (this._timeZoneIndex + 1) % this.options.timeZones.length;
+        var timeZone = this._getCurrentTimeZone();
+        if (timeZone.toLowerCase() == "utc") {
+            DomUtil.addClass(this._displayDate, "utc");
+            this._displayDate.title = "UTC Time";
+        } else if (timeZone.toLowerCase() == "local") {
+            this._displayDate.title = "Local Time";
+        } else if (timeZone.toLowerCase() == "localday") {
+            DomUtil.addClass(this._displayDate, "localday");
+            this._displayDate.title = "Local Time";
+        } else {
+            this._displayDate.title = timeZone;
         }
-        var first = e.touches && e.touches.length === 1 ? e.touches[0] : e,
-          x = DomEvent.getMousePosition(first, sliderbar).x;
-        knob.setPosition(x);
-        speedLabel.innerHTML = this._getDisplaySpeed(knob.getValue());
-        this._sliderSpeedValueChanged(knob.getValue());
-      },
-      this
-    );
-    return knob;
-  },
 
-  _buttonBackwardClicked: function () {
-    this._timeDimension.previousTime(this._steps);
-  },
+        this._update();
+    },
 
-  _buttonForwardClicked: function () {
-    this._timeDimension.nextTime(this._steps);
-  },
-  _buttonLoopClicked: function () {
-    this._player.setLooped(!this._player.isLooped());
-  },
+    /**
+     * Get date format as string
+     * @param {Date} date 
+     * @returns date format as string
+     */
+    _getDisplayDateFormat: function(date) {
+        var timeZone = this._getCurrentTimeZone();
+        if (timeZone.toLowerCase() == "utc") {
+            return date.toISOString();
+        }
+        if (timeZone.toLowerCase() == "local") {
+            return date.toLocaleString();
+        }
+        if (timeZone.toLowerCase() == "localday") {
+            return `${date.toDateString()} ${date.toLocaleTimeString(undefined, {hour: 'numeric', minute: 'numeric'})}`;
+        }
+        return date.toLocaleString([], {
+            timeZone: timeZone,
+            timeZoneName: "short",
+        });
+    },
 
-  _buttonPlayClicked: function () {
-    if (this._player.isPlaying()) {
-      this._player.stop();
-    } else {
-      this._player.start(this._steps);
-    }
-  },
+    /**
+     * Display speed
+     * @param {number} fps 
+     * @returns fps value as string
+     */
+    _getDisplaySpeed: function(fps) {
+        return fps + "fps";
+    },
 
-  _buttonPlayReverseClicked: function () {
-    if (this._player.isPlaying()) {
-      this._player.stop();
-    } else {
-      this._player.start(this._steps * -1);
-    }
-  },
+    /**
+     * Display loading text
+     * @param {number} available 
+     * @param {number} buffer 
+     * @returns loading text as string
+     */
+    _getDisplayLoadingText: function(available, buffer) {
+        return "<span>" + Math.floor((available / buffer) * 100) + "%</span>";
+    },
 
-  _buttonDateClicked: function () {
-    this._switchTimeZone();
-  },
-
-  _sliderTimeValueChanged: function (newValue) {
-    this._timeDimension.setCurrentTimeIndex(newValue);
-  },
-
-  _sliderLimitsValueChanged: function (lowerLimit, upperLimit) {
-    this._timeDimension.setLowerLimitIndex(lowerLimit);
-    this._timeDimension.setUpperLimitIndex(upperLimit);
-  },
-
-  _sliderSpeedValueChanged: function (newValue) {
-    this._player.setTransitionTime(1000 / newValue);
-  },
-
-  _getCurrentTimeZone: function () {
-    return this.options.timeZones[this._timeZoneIndex];
-  },
-
-  _switchTimeZone: function () {
-    if(this.options.onlyUTC) {
-      return
-    }
-    if (this._getCurrentTimeZone().toLowerCase() == "utc") {
-      DomUtil.removeClass(this._displayDate, "utc");
-    }
-    if (this._getCurrentTimeZone().toLowerCase() == "localday") {
-      DomUtil.removeClass(this._displayDate, "localday");
-    }
-    this._timeZoneIndex = (this._timeZoneIndex + 1) % this.options.timeZones.length;
-    var timeZone = this._getCurrentTimeZone();
-    if (timeZone.toLowerCase() == "utc") {
-      DomUtil.addClass(this._displayDate, "utc");
-      this._displayDate.title = "UTC Time";
-    } else if (timeZone.toLowerCase() == "local") {
-      this._displayDate.title = "Local Time";
-    } else if (timeZone.toLowerCase() == "localday") {
-      DomUtil.addClass(this._displayDate, "localday");
-      this._displayDate.title = "Local Time";
-    } else {
-      this._displayDate.title = timeZone;
-    }
-
-    this._update();
-  },
-
-  _getDisplayDateFormat: function (date) {
-    var timeZone = this._getCurrentTimeZone();
-    if (timeZone.toLowerCase() == "utc") {
-      return date.toISOString();
-    }
-    if (timeZone.toLowerCase() == "local") {
-      return date.toLocaleString();
-    }
-    if (timeZone.toLowerCase() == "localday") {
-      return `${date.toDateString()} ${date.toLocaleTimeString(undefined, {hour: 'numeric', minute: 'numeric'})}`;
-    }
-    return date.toLocaleString([], {
-      timeZone: timeZone,
-      timeZoneName: "short",
-    });
-  },
-  _getDisplaySpeed: function (fps) {
-    return fps + "fps";
-  },
-  _getDisplayLoadingText: function (available, buffer) {
-    return "<span>" + Math.floor((available / buffer) * 100) + "%</span>";
-  },
-  _getDisplayNoTimeError: function () {
-    return "Time not available";
-  },
+    /**
+     * Display no time error
+     * @returns Error message
+     */
+    _getDisplayNoTimeError: function() {
+        return "Time not available";
+    },
 });
 
-Map.addInitHook(function () {
-  if (this.options.timeDimensionControl) {
-    this.timeDimensionControl = new TimeDimensionControl(
-      this.options.timeDimensionControlOptions || {}
-    );
-    this.addControl(this.timeDimensionControl);
-  }
+/**
+ * Editing leaflet Map hooks
+ */
+Map.addInitHook(function() {
+    if (this.options.timeDimensionControl) {
+        this.timeDimensionControl = new TimeDimensionControl(
+            this.options.timeDimensionControlOptions || {}
+        );
+        this.addControl(this.timeDimensionControl);
+    }
 });
